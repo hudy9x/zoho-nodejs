@@ -33,13 +33,22 @@ app.use((req, res, next) => {
   next();
 });
 
-// Home page with instructions
+/**
+ * Home page with instructions
+ * @route GET /
+ * @returns {string} HTML template with authentication URL
+ */
 app.get('/', (req, res) => {
   const authUrl = `https://${ZOHO_ACCOUNTS_URL}/oauth/v2/auth?scope=${ZOHO_SCOPES}&client_id=${CLIENT_ID}&response_type=code&access_type=offline&prompt=consent&redirect_uri=${encodeURIComponent(REDIRECT_URI)}`;
   res.send(getHomeTemplate({ authUrl, redirectUri: REDIRECT_URI }));
 });
 
-// OAuth2 callback route to exchange code for tokens
+/**
+ * OAuth2 callback endpoint to exchange authorization code for access and refresh tokens
+ * @route GET /callback
+ * @param {string} code - The authorization code received from Zoho OAuth
+ * @returns {Object} Tokens object containing access_token and refresh_token
+ */
 app.get('/callback', async (req, res) => {
   const code = req.query.code;
   if (!code) {
@@ -54,7 +63,14 @@ app.get('/callback', async (req, res) => {
   }
 });
 
-// Send test email route
+/**
+ * Send a test email using Zoho Mail API
+ * @route GET /send-test-email
+ * @param {string} [toAddress=huudai09@gmail.com] - Recipient's email address
+ * @param {string} [subject=Test from Zoho API] - Email subject
+ * @param {string} [content=Hello from Express.js and Zoho!] - Email content
+ * @returns {Object} Response from Zoho Mail API
+ */
 app.get('/send-test-email', async (req, res) => {
   const { toAddress, subject, content } = req.query;
   try {
@@ -70,6 +86,11 @@ app.get('/send-test-email', async (req, res) => {
   }
 });
 
+/**
+ * Get the Zoho Mail account ID for the authenticated user
+ * @route GET /get-account-id
+ * @returns {Object} Account information including account_id
+ */
 app.get('/get-account-id', async (req, res) => {
   try {
     const data = await ZohoApi.getAccountId();
@@ -79,6 +100,13 @@ app.get('/get-account-id', async (req, res) => {
   }
 });
 
+/**
+ * Mark an email as read or unread using query parameters
+ * @route GET /mark-email
+ * @param {string} messageId - ID of the email message
+ * @param {string} read - 'true' to mark as read, 'false' to mark as unread
+ * @returns {Object} Response from Zoho Mail API
+ */
 app.get('/mark-email', async (req, res) => {
   console.log('mark-email', req.query);
   const { messageId, read } = req.query;
@@ -95,22 +123,11 @@ app.get('/mark-email', async (req, res) => {
   }
 });
 
-app.post('/mark-email', async (req, res) => {
-  const { messageIds, read } = req.body;
-
-  if (!Array.isArray(messageIds) || typeof read !== 'boolean') {
-    return res.status(400).send('Missing or invalid parameters.');
-  }
-
-  try {
-    const data = await ZohoApi.markEmail({ messageIds, read });
-    res.json(data);
-  } catch (e) {
-    res.status(500).send('Error: ' + e.message);
-  }
-});
-
-// List messages route
+/**
+ * List email messages from the authenticated user's inbox
+ * @route GET /list-messages
+ * @returns {Object} List of email messages
+ */
 app.get('/list-messages', async (req, res) => {
   try {
     const data = await ZohoApi.listMessages();
@@ -120,7 +137,11 @@ app.get('/list-messages', async (req, res) => {
   }
 });
 
-// Renew access token route
+/**
+ * Renew the access token using the refresh token
+ * @route GET /renew-access-token
+ * @returns {Object} New tokens object containing access_token
+ */
 app.get('/renew-access-token', async (req, res) => {
   try {
     const data = await ZohoApi.renewAccessToken();

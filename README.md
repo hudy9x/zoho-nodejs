@@ -76,15 +76,17 @@ pnpm run dev
 
 ## API Endpoints
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/` | Home page with authentication instructions |
-| GET | `/callback` | OAuth callback endpoint |
-| GET | `/send-test-email` | Send a test email |
-| GET | `/get-account-id` | Retrieve your Zoho Mail account ID |
-| GET | `/list-messages` | List messages from a specific folder |
-| POST | `/mark-email` | Mark messages as read/unread |
-| POST | `/renew-access-token` | Refresh the access token |
+### Authentication and Email Operations
+
+| Method | Endpoint | Description | Parameters |
+|--------|----------|-------------|------------|
+| GET | `/` | Home page with instructions and auth links | None |
+| GET | `/callback` | OAuth2 callback endpoint to exchange authorization code for tokens | `code` (string): Authorization code from Zoho |
+| GET | `/send-test-email` | Send a test email using Zoho Mail API | - `toAddress` (string, optional): Recipient email<br>- `subject` (string, optional): Email subject<br>- `content` (string, optional): Email content |
+| GET | `/get-account-id` | Get the Zoho Mail account ID | None |
+| GET | `/mark-email` | Mark an email as read or unread | - `messageId` (string): Email ID<br>- `read` (string): 'true' or 'false' |
+| GET | `/list-messages` | List inbox email messages | None |
+| GET | `/renew-access-token` | Renew the access token | None |
 
 ## Token Management
 
