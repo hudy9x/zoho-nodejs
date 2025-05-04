@@ -2,7 +2,7 @@ const fs = require('fs');
 const https = require('https');
 const path = require('path');
 
-const TOKEN_FILE = path.join(__dirname, 'zoho_tokens.json');
+const TOKEN_FILE = path.join(__dirname, '..', 'zoho_tokens.json');
 
 function stringifyQuery(obj) {
   return Object.entries(obj)
@@ -11,6 +11,7 @@ function stringifyQuery(obj) {
 }
 
 function saveTokens(tokens) {
+  console.log('saveTokens tokens', tokens);
   fs.writeFileSync(TOKEN_FILE, JSON.stringify(tokens, null, 2));
   console.log('Tokens saved to', TOKEN_FILE);
 }
