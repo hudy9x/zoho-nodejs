@@ -76,7 +76,7 @@ app.get('/send-test-email', async (req, res) => {
   try {
     const data = await ZohoApi.sendEmail({
       fromAddress: process.env.FROM_ADDRESS,
-      toAddress: toAddress || 'huudai09@gmail.com',
+      toAddress: toAddress || 'your-email@gmail.com',
       subject: subject || 'Test from Zoho API',
       content: content || 'Hello from Express.js and Zoho!'
     });

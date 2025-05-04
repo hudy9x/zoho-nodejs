@@ -2,6 +2,8 @@
 
 A sample Express.js application demonstrating integration with Zoho Mail API using OAuth 2.0 authentication. This app provides endpoints for sending emails, listing messages, marking emails as read/unread, and managing OAuth tokens.
 
+![Demo](./demo.png)
+
 ## Features
 
 - OAuth 2.0 authentication with Zoho Mail
