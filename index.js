@@ -1,59 +1,28 @@
+require('dotenv').config();
+
 const express = require('express');
-const fs = require('fs');
-const https = require('https');
-const querystring = require('querystring');
-const path = require('path');
+const { saveTokens, loadTokens, makeRequest, stringifyQuery } = require('./utils');
+const { missingCredentialsError, missingAccountIdError } = require('./error');
 
 const app = express();
 const PORT = 3000;
 
-// 1. Follow this documentation to integrate Zoho Email api: https://www.zoho.com/mail/help/api/using-oauth-2.html
+// Integrate Zoho Email: https://www.zoho.com/mail/help/api/using-oauth-2.html
+const CLIENT_ID = process.env.CLIENT_ID;
+const CLIENT_SECRET = process.env.CLIENT_SECRET;
+const ACCOUNT_ID = process.env.ACCOUNT_ID;
 
-// ==== CONFIGURATION ====
+if (!CLIENT_ID || !CLIENT_SECRET) {
+  console.error(missingCredentialsError);
+}
 
-// 2. Follow this to https://accounts.zoho.com/developerconsole. to register an application
-// For this app, please select "Server-Based Applications"
-// You can get CLIENT_ID and CLIENT_SECRET
-// Next, send
-const CLIENT_ID = '1000.WS1E1H9L8QWJV1F4YC0NYXOI1S3Y2M';
-const CLIENT_SECRET = 'b84713583413d1f4afff8af04563ffc980e8c7ab28';
+if (!ACCOUNT_ID) {
+  console.error(missingAccountIdError);
+}
 
-// 3. Remember that you can use http://localhost for testing
 const REDIRECT_URI = `http://localhost:${PORT}/callback`;
-
-const TOKEN_FILE = path.join(__dirname, 'zoho_tokens.json');
 const ZOHO_ACCOUNTS_URL = 'accounts.zoho.com';
-
-// 4. Zoho user id IS NOT account ID
-// so please run api /get-account-id and find `accountId`
-const ACCOUNT_ID = '6702887000000008002';
-
-// 5. For scopes, you can find it in https://www.zoho.com/mail/help/api/post-send-an-email.html
-// Find `OAuth Scope` section
-const ZOHO_SCOPES = 'ZohoMail.messages.ALL,ZohoMail.accounts.READ,ZohoMail.folders.ALL'
-
-// Utility to save new tokens
-function saveTokens(tokens) {
-  // save this to a file 
-  fs.writeFileSync(TOKEN_FILE, JSON.stringify(tokens, null, 2));
-  console.log('Tokens saved to', TOKEN_FILE);
-}
-
-
-// ==== UTILS ====
-function saveTokens(tokens) {
-  fs.writeFileSync(TOKEN_FILE, JSON.stringify(tokens, null, 2));
-  console.log('Tokens saved to', TOKEN_FILE);
-}
-
-function loadTokens() {
-  if (fs.existsSync(TOKEN_FILE)) {
-    return JSON.parse(fs.readFileSync(TOKEN_FILE));
-  }
-  return null;
-}
-
-// ==== ROUTES ====
+const ZOHO_SCOPES = process.env.ZOHO_SCOPES || ""
 
 app.use(express.json());
 
@@ -61,7 +30,6 @@ app.use((req, res, next) => {
   console.log(`${req.method}: ${req.path}`)
   next()
 })
-
 
 // Home page with instructions
 app.get('/', (req, res) => {
@@ -79,13 +47,13 @@ app.get('/', (req, res) => {
 });
 
 // OAuth2 callback route to exchange code for tokens
-app.get('/callback', (req, res) => {
+app.get('/callback', async (req, res) => {
   const code = req.query.code;
   if (!code) {
     return res.status(400).send('No code found in query.');
   }
 
-  const params = querystring.stringify({
+  const params = stringifyQuery({
     grant_type: 'authorization_code',
     client_id: CLIENT_ID,
     client_secret: CLIENT_SECRET,
@@ -99,29 +67,17 @@ app.get('/callback', (req, res) => {
     method: 'POST'
   };
 
-  const zohoReq = https.request(options, (zohoRes) => {
-    let data = '';
-    zohoRes.on('data', chunk => data += chunk);
-    zohoRes.on('end', () => {
-      try {
-        const tokens = JSON.parse(data);
-        saveTokens(tokens);
-        res.json(tokens);
-      } catch (e) {
-        res.status(500).send('Error parsing Zoho response: ' + e.message);
-      }
-    });
-  });
-
-  zohoReq.on('error', (e) => {
+  try {
+    const response = await makeRequest(options);
+    saveTokens(response.data);
+    res.json(response.data);
+  } catch (e) {
     res.status(500).send('Error: ' + e.message);
-  });
-
-  zohoReq.end();
+  }
 });
 
 // Send test email route
-app.get('/send-test-email', (req, res) => {
+app.get('/send-test-email', async (req, res) => {
   const tokens = loadTokens();
   if (!tokens || !tokens.access_token) {
     return res.status(400).send('No access token found. Please authenticate first.');
@@ -147,24 +103,16 @@ app.get('/send-test-email', (req, res) => {
     }
   };
 
-  const zohoReq = https.request(options, (zohoRes) => {
-    let data = '';
-    zohoRes.on('data', chunk => data += chunk);
-    zohoRes.on('end', () => {
-      res.set('Content-Type', 'application/json');
-      res.send(data);
-    });
-  });
-
-  zohoReq.on('error', (e) => {
+  try {
+    const response = await makeRequest(options, emailData);
+    res.set('Content-Type', 'application/json');
+    res.send(response.data);
+  } catch (e) {
     res.status(500).send('Error: ' + e.message);
-  });
-
-  zohoReq.write(emailData);
-  zohoReq.end();
+  }
 });
 
-app.get('/get-account-id', (req, res) => {
+app.get('/get-account-id', async (req, res) => {
   const tokens = loadTokens();
   if (!tokens || !tokens.access_token) {
     return res.status(400).send('No access token found. Please authenticate first.');
@@ -180,27 +128,15 @@ app.get('/get-account-id', (req, res) => {
     }
   };
 
-  const zohoReq = https.request(options, (zohoRes) => {
-    let data = '';
-    zohoRes.on('data', chunk => data += chunk);
-    zohoRes.on('end', () => {
-      try {
-        const json = JSON.parse(data);
-        res.json(json);
-      } catch (e) {
-        res.status(500).send('Error parsing Zoho response: ' + e.message);
-      }
-    });
-  });
-
-  zohoReq.on('error', (e) => {
+  try {
+    const response = await makeRequest(options);
+    res.json(response.data);
+  } catch (e) {
     res.status(500).send('Error: ' + e.message);
-  });
-
-  zohoReq.end();
+  }
 });
 
-app.post('/mark-email', (req, res) => {
+app.post('/mark-email', async (req, res) => {
   const tokens = loadTokens();
   if (!tokens || !tokens.access_token) {
     return res.status(400).send('No access token found. Please authenticate first.');
@@ -233,25 +169,17 @@ app.post('/mark-email', (req, res) => {
 
   console.log('mark as email: ', options, data)
 
-  const zohoReq = require('https').request(options, (zohoRes) => {
-    let responseData = '';
-    zohoRes.on('data', chunk => responseData += chunk);
-    zohoRes.on('end', () => {
-      res.set('Content-Type', 'application/json');
-      res.status(zohoRes.statusCode).send(responseData);
-    });
-  });
-
-  zohoReq.on('error', (e) => {
+  try {
+    const response = await makeRequest(options, data);
+    res.set('Content-Type', 'application/json');
+    res.status(response.statusCode).send(response.data);
+  } catch (e) {
     res.status(500).send('Error: ' + e.message);
-  });
-
-  zohoReq.write(data);
-  zohoReq.end();
+  }
 });
 
-
-app.get('/list-messages', (req, res) => {
+// List messages route
+app.get('/list-messages', async (req, res) => {
   const tokens = loadTokens();
   if (!tokens || !tokens.access_token) {
     return res.status(400).send('No access token found. Please authenticate first.');
@@ -271,47 +199,16 @@ app.get('/list-messages', (req, res) => {
     }
   };
 
-  const zohoReq = require('https').request(options, (zohoRes) => {
-    let data = '';
-    zohoRes.on('data', chunk => data += chunk);
-    zohoRes.on('end', () => {
-      try {
-        const json = JSON.parse(data);
-        // console.log('data', data)
-        // // The messages list is usually in json.data
-        // const messages = (json.data && Array.isArray(json.data)) ? json.data : [];
-        // // Build HTML table
-        // let html = `
-        //   <h2>Zoho Mail Messages</h2>
-        //   <table border="1" cellpadding="5" cellspacing="0">
-        //     <tr>
-        //       <th>Message ID</th>
-        //       <th>Subject</th>
-        //     </tr>
-        // `;
-        // messages.forEach(msg => {
-        //   html += `<tr>
-        //     <td>${msg.messageId}</td>
-        //     <td>${msg.subject || '(No Subject)'}</td>
-        //   </tr>`;
-        // });
-        // html += '</table>';
-        res.json(json);
-      } catch (e) {
-        res.status(500).send('Error parsing Zoho response: ' + e.message);
-      }
-    });
-  });
-
-  zohoReq.on('error', (e) => {
+  try {
+    const response = await makeRequest(options);
+    res.json(response.data);
+  } catch (e) {
     res.status(500).send('Error: ' + e.message);
-  });
-
-  zohoReq.end();
+  }
 });
 
-
-app.post('/renew-access-token', (req, res) => {
+// Renew access token route
+app.post('/renew-access-token', async (req, res) => {
 
   const tokens = loadTokens();
   if (!tokens || !tokens.refresh_token) {
@@ -320,7 +217,7 @@ app.post('/renew-access-token', (req, res) => {
   // You can get refresh_token from body or use the saved one
   const refresh_token = tokens.refresh_token
 
-  const params = querystring.stringify({
+  const params = stringifyQuery({
     refresh_token: refresh_token,
     client_id: CLIENT_ID,
     client_secret: CLIENT_SECRET,
@@ -333,33 +230,19 @@ app.post('/renew-access-token', (req, res) => {
     method: 'POST'
   };
 
-  const zohoReq = https.request(options, (zohoRes) => {
-    let data = '';
-    zohoRes.on('data', chunk => data += chunk);
-    zohoRes.on('end', () => {
-      try {
-        const json = JSON.parse(data);
-        if (json.access_token) {
-          // Optionally save new tokens
-          saveTokens({ ...json, refresh_token });
-        }
-        res.status(zohoRes.statusCode).json(json);
-      } catch (e) {
-        res.status(500).send('Error parsing Zoho response: ' + e.message);
-      }
-    });
-  });
-
-  zohoReq.on('error', (e) => {
+  try {
+    const response = await makeRequest(options);
+    if (response.data.access_token) {
+      // Optionally save new tokens
+      saveTokens({ ...response.data, refresh_token });
+    }
+    res.status(response.statusCode).json(response.data);
+  } catch (e) {
     res.status(500).send('Error: ' + e.message);
-  });
-
-  zohoReq.end();
+  }
 });
-
 
 // ==== START SERVER ====
 app.listen(PORT, () => {
   console.log(`Express server running at http://localhost:${PORT}`);
 });
-

@@ -19,47 +19,59 @@ A sample Express.js application demonstrating integration with Zoho Mail API usi
    - Select "Server-Based Applications" when registering
    - Configure redirect URI as `http://localhost:3000/callback`
 
-## Installation
+### Getting CLIENT_ID and CLIENT_SECRET
 
-Clone the repository:
-```bash
-git clone [your-repo-url]
-cd [your-repo-name]
-```
+1. Go to [Zoho Developer Console](https://accounts.zoho.com/developerconsole)
+2. Click on "Add Client" to create a new application
+3. Choose "Server-based Applications" as the client type
+4. Fill in the required details:
+   - Client Name: Your application name (e.g., "Email Integration")
+   - Homepage URL: You can use **`http://localhost:3000`** for testing
+   - Authorized Redirect URIs: Add **`http://localhost:3000/callback`**
+   
+5. After creating the application, you'll receive:
+   - Client ID (e.g., `1000.XXXXXXXXXXXXXXXXXXXXXXXXXXXX`)
+   - Client Secret (e.g., `abcd1234efgh5678ijkl9012mnop3456qrst`)
+6. Copy these credentials and update them in your `.env` file or directly in `index.js`
+
+> **Important**: Zoho fully supports using `localhost` for development and testing. You don't need a production domain to start developing. 
+> For more details about OAuth2 implementation, refer to the [Zoho Mail API Documentation](https://www.zoho.com/mail/help/api/using-oauth-2.html).
+
+### OAuth Scopes
+
+The application uses Zoho Mail API scopes for reading and managing emails. The scopes are configured in your `.env` file. See the [Zoho Mail API Documentation](https://www.zoho.com/mail/help/api/post-send-an-email.html) under "OAuth Scope" for available options.
+
+## Installation
 
 Install dependencies:
 ```bash
-npm install
+pnpm install
 ```
-
-Configure your application:
-   - Open `index.js`
-   - Update the following constants with your Zoho application credentials:
-     ```javascript
-     const CLIENT_ID = 'your_client_id';
-     const CLIENT_SECRET = 'your_client_secret';
-     const ACCOUNT_ID = 'your_account_id'; // You can get this using /get-account-id endpoint
-     ```
+Start the server:
+```bash
+pnpm run dev
+```
 
 ## Usage
 
-Start the server:
-```bash
-node index.js
-```
+1. Open your browser and navigate to [http://localhost:3000](http://localhost:3000)
 
-Open your browser and navigate to `http://localhost:3000`
-
-Follow the authentication flow:
+2. Follow the authentication flow:
    - Click "Get Authorization Code" link
    - Log in to your Zoho account and authorize the application
    - The app will automatically save the tokens in `zoho_tokens.json`
 
-Get your Account ID:
-   - After authentication, click on "Get ACCOUNT_ID"
-   - Copy your account ID and update it in `index.js`
+3. Get your ACCOUNT_ID:
+   - Call the `/get-account-id` endpoint
+   - In the JSON response, find the account that matches your email address
+   - Copy the `accountId` value (e.g., `6702887000000008002`)
+   - Add it to your `.env` file:
+     ```
+     ACCOUNT_ID=your_account_id_here
+     ```
+   > **Note**: The ACCOUNT_ID is required for most Zoho Mail API operations
 
-Test the integration:
+4. Test the integration:
    - Click "Send Test Email" to verify the setup
 
 ## API Endpoints
